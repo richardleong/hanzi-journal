@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
-import { Noto_Serif_SC, Space_Mono, Lora } from "next/font/google";
+import { Noto_Serif_SC, Space_Mono, Lora, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 const notoSerifSC = Noto_Serif_SC({
   weight: ['300', '400', '500', '700'],
@@ -33,10 +38,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${notoSerifSC.variable} ${spaceMono.variable} ${lora.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", notoSerifSC.variable, spaceMono.variable, lora.variable, "font-sans", geist.variable)}
     >
       <body className="w-full flex justify-center items-start min-h-screen">
-        {children}
+        <TooltipProvider>
+          {children}
+        </TooltipProvider>
+        <Toaster />
       </body>
     </html>
   );

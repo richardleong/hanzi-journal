@@ -6,6 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.0] - 2026-05-17
+
+### Added
+- shadcn/ui (Base UI version) initialized with ink/paper/gold theme mapping
+- Sonner toast on word save and delete
+- Skeleton loading state on initial fetch
+- Tooltip on Save button, delete and mastered icons
+- Collapsible replaces CSS grid animation on "+ More details"
+- Select replaces native dropdowns for Category and Register
+- Toggle Group for filter (All/Learning/Mastered) and sort (Newest/Oldest/A-Z)
+- Badge variants for category, register, and context tags
+
+### Fixed
+- Tooltip press-down behaviour via render prop + active:translate-y
+- Pinyin input font changed to font-sans to fix diacritic ligature glitch
+- Input height alignment across form fields (h-[36px])
+
+---
+
 ## [0.2.0] — 2026-05-17
 
 ### Added
