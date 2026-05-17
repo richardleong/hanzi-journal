@@ -5,6 +5,7 @@ import { Word, storage, REGISTER_OPTIONS, CONTEXT_OPTIONS } from "@/lib/storage"
 import { VocabCard } from "@/components/VocabCard";
 import { PinyinInput } from "@/components/PinyinInput";
 import { cn } from "@/lib/utils";
+import { pinyinSortKey } from "@/lib/pinyin";
 import { differenceInDays, startOfDay } from "date-fns";
 
 type Tab = "add" | "browse" | "stats";
@@ -28,6 +29,7 @@ export default function Home() {
   // Browse state
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "learning" | "mastered">("all");
+  const [sort, setSort] = useState<"newest" | "oldest" | "pinyin">("newest");
 
   useEffect(() => {
     async function load() {
@@ -132,9 +134,9 @@ export default function Home() {
     };
   }, [words]);
 
-  // Browse filtering
+  // Browse filtering + sorting
   const filteredWords = useMemo(() => {
-    return words.filter(w => {
+    const filtered = words.filter(w => {
       const matchesSearch = 
         w.hanzi.includes(search) || 
         w.pinyin.toLowerCase().includes(search.toLowerCase()) || 
@@ -147,7 +149,13 @@ export default function Home() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [words, search, filter]);
+
+    return filtered.sort((a, b) => {
+      if (sort === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sort === "pinyin") return pinyinSortKey(a.pinyin).localeCompare(pinyinSortKey(b.pinyin));
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest
+    });
+  }, [words, search, filter, sort]);
 
   const dailyGoal = 5;
   const progressPercent = Math.min((stats.todayCount / dailyGoal) * 100, 100);
@@ -389,23 +397,42 @@ export default function Home() {
                 />
               </div>
 
-              <div className="flex items-center justify-between mb-6">
-                <div className="font-mono text-xs tracking-[0.3em] uppercase text-faded">
-                  {filteredWords.length} words
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="font-mono text-xs tracking-[0.3em] uppercase text-faded">
+                    {filteredWords.length} words
+                  </div>
+                  <div className="flex gap-2">
+                    {(['all', 'learning', 'mastered'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={cn(
+                          "font-mono text-[0.55rem] tracking-widest uppercase px-2.5 py-1.5 border transition-colors",
+                          filter === f 
+                            ? "bg-ink text-paper border-ink" 
+                            : "bg-transparent text-faded border-light-faded hover:bg-ink hover:text-paper"
+                        )}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  {(['all', 'learning', 'mastered'] as const).map(f => (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[0.5rem] tracking-[0.2em] uppercase text-light-faded mr-1">Sort</span>
+                  {([['newest', 'Newest'], ['oldest', 'Oldest'], ['pinyin', 'A-Z Pinyin']] as const).map(([val, label]) => (
                     <button
-                      key={f}
-                      onClick={() => setFilter(f)}
+                      key={val}
+                      onClick={() => setSort(val)}
                       className={cn(
-                        "font-mono text-[0.55rem] tracking-widest uppercase px-2.5 py-1.5 border transition-colors",
-                        filter === f 
-                          ? "bg-ink text-paper border-ink" 
-                          : "bg-transparent text-faded border-light-faded hover:bg-ink hover:text-paper"
+                        "font-mono text-[0.5rem] tracking-wider px-2 py-1 border transition-colors",
+                        sort === val
+                          ? "bg-gold/15 text-[#8b6914] border-gold/30"
+                          : "bg-transparent text-light-faded border-light-faded/50 hover:text-faded hover:border-light-faded"
                       )}
                     >
-                      {f}
+                      {label}
                     </button>
                   ))}
                 </div>

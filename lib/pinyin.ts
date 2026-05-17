@@ -57,3 +57,31 @@ export function convertToPinyin(text: string): string {
     return pinyin;
   });
 }
+
+// Build reverse map: toned char → [base vowel, tone number]
+const toneReverse = new Map<string, [string, number]>();
+for (const [base, variants] of Object.entries(toneMap)) {
+  const normalBase = base === 'v' ? 'ü' : base;
+  for (let tone = 0; tone <= 4; tone++) {
+    if (variants[tone] && variants[tone] !== normalBase) {
+      toneReverse.set(variants[tone], [normalBase, tone]);
+    }
+  }
+}
+
+/**
+ * Converts toned pinyin (e.g. "shǔ") into a sort key (e.g. "shu3")
+ * so that same-base syllables sort by tone: 1st → 2nd → 3rd → 4th → neutral.
+ */
+export function pinyinSortKey(pinyin: string): string {
+  let result = '';
+  for (const char of pinyin) {
+    const entry = toneReverse.get(char);
+    if (entry) {
+      result += entry[0] + entry[1];
+    } else {
+      result += char;
+    }
+  }
+  return result.toLowerCase();
+}
