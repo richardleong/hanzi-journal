@@ -157,7 +157,7 @@ export default function Home() {
   return (
     <div className="w-full max-w-3xl bg-paper rounded-sm journal-shadow relative overflow-hidden">
       {/* Spine */}
-      <div className="absolute left-0 top-0 bottom-0 w-7 bg-gradient-to-r from-[#8b6914] via-[#c9a84c] to-[#8b6914] shadow-[inset_-3px_0_8px_rgba(0,0,0,0.3)] z-10" />
+      <div className="absolute left-0 top-0 bottom-0 w-7 bg-linear-to-r from-[#8b6914] via-[#c9a84c] to-[#8b6914] shadow-[inset_-3px_0_8px_rgba(0,0,0,0.3)] z-10" />
       {/* Red margin line */}
       <div className="absolute left-[68px] top-0 bottom-0 w-[1.5px] bg-red/20 z-0" />
 
@@ -183,7 +183,7 @@ export default function Home() {
           <div className="mt-5 flex items-center gap-3">
             <div className="flex-1 h-1.5 bg-white/10 overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-[#8b6914] to-gold transition-all duration-700 ease-out"
+                className="h-full bg-linear-to-r from-[#8b6914] to-gold transition-all duration-700 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -200,7 +200,7 @@ export default function Home() {
               key={t}
               onClick={() => setActiveTab(t)}
               className={cn(
-                "font-mono text-xs tracking-[0.2em] uppercase py-3 px-4 transition-all -mb-[1.5px] border-b-[2.5px]",
+                "font-mono text-xs tracking-[0.2em] uppercase py-3 px-4 transition-all mb-[-1.5px] border-b-[2.5px]",
                 activeTab === t 
                   ? "text-ink border-red font-bold" 
                   : "text-faded border-transparent hover:text-ink"
