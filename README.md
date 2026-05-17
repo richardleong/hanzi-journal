@@ -93,8 +93,6 @@ hanzi-journal/
 │   ├── pinyin.ts            # Hanyu Pinyin tone placement engine
 │   ├── storage.ts           # Hybrid storage (Supabase or localStorage)
 │   └── utils.ts             # cn() utility (clsx + tailwind-merge)
-├── reference/
-│   └── claude1.html         # Original HTML prototype (reference only)
 └── .env.local               # Supabase credentials (gitignored)
 ```
 

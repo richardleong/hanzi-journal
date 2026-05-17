@@ -18,9 +18,16 @@ export function VocabCard({ word, onDelete, onToggleMastered }: VocabCardProps) 
       "group relative bg-aged border border-light-faded p-5 pt-7 pb-4 transition-all duration-200 cursor-default",
       "hover:shadow-[3px_3px_0_var(--color-gold)] hover:-translate-x-[1px] hover:-translate-y-[1px]"
     )}>
-      {/* Top Left: Category */}
-      <div className="absolute top-2 left-2 font-mono text-[0.55rem] tracking-widest uppercase bg-ink text-gold px-1.5 py-0.5">
-        {word.category}
+      {/* Top Left: Category + Register */}
+      <div className="absolute top-2 left-2 flex items-center gap-1">
+        <span className="font-mono text-[0.55rem] tracking-widest uppercase bg-ink text-gold px-1.5 py-0.5">
+          {word.category}
+        </span>
+        {word.register && (
+          <span className="font-mono text-[0.55rem] tracking-wider uppercase bg-transparent border border-light-faded text-faded px-1.5 py-0.5">
+            {word.register}
+          </span>
+        )}
       </div>
 
       {/* Top Right: Delete Button */}
@@ -52,6 +59,16 @@ export function VocabCard({ word, onDelete, onToggleMastered }: VocabCardProps) 
       {word.example && (
         <div className="font-serif text-xs text-[#6b5a3e] leading-relaxed border-t border-light-faded pt-2 mt-2">
           {word.example}
+        </div>
+      )}
+
+      {word.context && word.context.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {word.context.map(c => (
+            <span key={c} className="font-mono text-[0.45rem] tracking-wider uppercase bg-gold/10 text-[#8b6914] border border-gold/20 px-1.5 py-0.5">
+              {c}
+            </span>
+          ))}
         </div>
       )}
 

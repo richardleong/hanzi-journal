@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Word, storage } from "@/lib/storage";
+import { Word, storage, REGISTER_OPTIONS, CONTEXT_OPTIONS } from "@/lib/storage";
 import { VocabCard } from "@/components/VocabCard";
 import { PinyinInput } from "@/components/PinyinInput";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,9 @@ export default function Home() {
   const [meaning, setMeaning] = useState("");
   const [category, setCategory] = useState("general");
   const [example, setExample] = useState("");
+  const [register, setRegister] = useState("");
+  const [context, setContext] = useState<string[]>([]);
+  const [showMore, setShowMore] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
   // Browse state
@@ -44,6 +47,8 @@ export default function Home() {
       meaning: meaning.trim(),
       category,
       example: example.trim(),
+      ...(register ? { register } : {}),
+      ...(context.length > 0 ? { context } : {}),
     });
 
     if (newWord) {
@@ -52,6 +57,8 @@ export default function Home() {
       setPinyin("");
       setMeaning("");
       setExample("");
+      setRegister("");
+      setContext([]);
       
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2000);
@@ -289,6 +296,71 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Collapsible + More Details */}
+              <div className="mb-5">
+                <button
+                  type="button"
+                  onClick={() => setShowMore(!showMore)}
+                  className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-faded hover:text-ink transition-colors flex items-center gap-1.5 group"
+                >
+                  <span className={`inline-block transition-transform duration-200 ${showMore ? 'rotate-45' : ''}`}>+</span>
+                  More details
+                  <span className="font-mono text-[0.5rem] text-light-faded">(optional)</span>
+                </button>
+
+                <div
+                  className="grid transition-all duration-300 ease-out"
+                  style={{ gridTemplateRows: showMore ? '1fr' : '0fr' }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
+                      {/* Register dropdown */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Register</label>
+                        <select
+                          value={register}
+                          onChange={(e) => setRegister(e.target.value)}
+                          className="font-serif text-base bg-transparent border-b-[1.5px] border-light-faded px-1 py-1.5 text-ink outline-none transition-colors focus:border-red"
+                        >
+                          <option value="">— Select —</option>
+                          {REGISTER_OPTIONS.map(r => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Context multi-select */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Where you&apos;d see/hear it</label>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {CONTEXT_OPTIONS.map(c => {
+                            const selected = context.includes(c);
+                            return (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => {
+                                  setContext(prev =>
+                                    selected ? prev.filter(x => x !== c) : [...prev, c]
+                                  );
+                                }}
+                                className={`font-mono text-[0.55rem] tracking-wider px-2 py-1 border transition-colors ${
+                                  selected
+                                    ? 'bg-ink text-gold border-ink'
+                                    : 'bg-transparent text-faded border-light-faded hover:border-faded'
+                                }`}
+                              >
+                                {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center gap-4 mt-6">
                 <button 
                   onClick={handleAdd}
@@ -421,7 +493,7 @@ export default function Home() {
                   </button>
                   <button 
                     onClick={() => {
-                      const lines = words.map(w => `${w.hanzi}\t${w.pinyin}\t${w.meaning}\t${w.example || ''}`);
+                      const lines = words.map(w => `${w.hanzi}\t${w.pinyin}\t${w.meaning}\t${w.example || ''}\t${w.register || ''}\t${(w.context || []).join(', ')}`);
                       const text = lines.join('\n');
                       const blob = new Blob([text], { type: 'text/plain' });
                       const url = URL.createObjectURL(blob);

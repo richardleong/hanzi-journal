@@ -7,9 +7,22 @@ export interface Word {
   meaning: string;
   category: string;
   example: string;
+  register?: string;
+  context?: string[];
   mastered: boolean;
   created_at: string;
 }
+
+export const REGISTER_OPTIONS = ['Neutral', 'Formal', 'Informal', 'Slang', 'Vulgar'] as const;
+export const CONTEXT_OPTIONS = [
+  'Spoken everyday',
+  'Texting',
+  'Workplace',
+  'News / Media',
+  'Textbook',
+  'Storybook',
+  'Singlish mix',
+] as const;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -81,8 +94,20 @@ export const storage = {
         .single();
       
       if (error) {
-        console.warn('Supabase insert failed:', error.message);
-        return null;
+        // If it failed because of missing columns, retry without register/context
+        const { register: _r, context: _c, ...coreWord } = newWord;
+        const { data: retryData, error: retryError } = await supabase
+          .from('words')
+          .insert([coreWord])
+          .select()
+          .single();
+        
+        if (retryError) {
+          console.warn('Supabase insert failed:', retryError.message);
+          return null;
+        }
+        console.info('Saved without register/context — run ALTER TABLE to add those columns.');
+        return retryData as Word;
       }
       return data as Word;
     } else {
