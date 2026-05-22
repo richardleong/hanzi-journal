@@ -6,6 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.0] - 2026-05-22
+
+### Added
+
+#### Vocabulary Card Editing
+- **Inline edit mode** on vocab cards in Browse tab — click the edit button to modify meaning and example sentence directly.
+- Save/cancel buttons with validation (meaning required) and loading state during save.
+- Updates sync immediately to storage (localStorage or Supabase).
+
+#### Learning Mode Toggle
+- **Learning Mode** toggle in Browse tab filters visibility of vocab card details.
+- When enabled, hides English meaning, Hanyu pinyin, and example sentence — focus on hanzi recognition only.
+- Useful for active vocabulary practice and self-testing.
+
+---
+
 ## [0.3.0] - 2026-05-17
 
 ### Added

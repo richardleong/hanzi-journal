@@ -6,14 +6,34 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
+
 interface VocabCardProps {
   word: Word;
   onDelete: (id: string) => void;
   onToggleMastered: (id: string, currentStatus: boolean) => void;
+  onEdit?: (id: string, updates: Partial<Word>) => void;
+  learningMode?: boolean;
 }
 
-export function VocabCard({ word, onDelete, onToggleMastered }: VocabCardProps) {
+export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMode }: VocabCardProps) {
   const formattedDate = format(new Date(word.created_at), 'MMM dd, yyyy');
+  const [editMode, setEditMode] = React.useState(false);
+  const [editMeaning, setEditMeaning] = React.useState(word.meaning);
+  const [editExample, setEditExample] = React.useState(word.example || "");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    setEditMeaning(word.meaning);
+    setEditExample(word.example || "");
+  }, [word.id]);
+
+  const handleSave = async () => {
+    if (!onEdit) return;
+    setSaving(true);
+    await onEdit(word.id, { meaning: editMeaning, example: editExample });
+    setSaving(false);
+    setEditMode(false);
+  };
 
   return (
     <div className={cn(
@@ -32,8 +52,19 @@ export function VocabCard({ word, onDelete, onToggleMastered }: VocabCardProps) 
         )}
       </div>
 
-      {/* Top Right: Delete Button */}
-      <div className="absolute top-2 right-2">
+      {/* Top Right: Edit & Delete Buttons */}
+      <div className="absolute top-2 right-2 flex">
+        <Tooltip>
+          <TooltipTrigger
+            onClick={() => setEditMode((v) => !v)}
+            className="text-light-faded hover:text-gold opacity-0 group-hover:opacity-100 transition-opacity p-1 outline-none"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Edit word</p>
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             onClick={() => onDelete(word.id)}
@@ -51,23 +82,65 @@ export function VocabCard({ word, onDelete, onToggleMastered }: VocabCardProps) 
         {formattedDate}
       </div>
 
+
       <div className="flex flex-col items-start mb-2.5">
-        <div className="font-mono text-sm text-red tracking-wider mb-1">
-          {word.pinyin}
-        </div>
+        {!learningMode && (
+          <div className="font-mono text-sm text-red tracking-wider mb-1">
+            {word.pinyin}
+          </div>
+        )}
         <div className="font-serif text-3xl font-normal text-ink leading-tight">
           {word.hanzi}
         </div>
       </div>
 
-      <div className="font-sans text-sm text-faded italic mb-2 leading-relaxed">
-        {word.meaning}
-      </div>
-
-      {word.example && (
-        <div className="font-serif text-xs text-[#6b5a3e] leading-relaxed border-t border-light-faded pt-2 mt-2">
-          {word.example}
+      {/* Edit Mode */}
+      {editMode ? (
+        <div className="w-full flex flex-col gap-2 mb-2">
+          <label className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-faded">Meaning</label>
+          <input
+            className="w-full font-sans text-sm px-2 py-1 border border-light-faded rounded bg-paper text-ink"
+            value={editMeaning}
+            onChange={e => setEditMeaning(e.target.value)}
+            disabled={saving}
+          />
+          <label className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-faded">Example</label>
+          <textarea
+            className="w-full font-sans text-xs px-2 py-1 border border-light-faded rounded bg-paper text-ink"
+            value={editExample}
+            onChange={e => setEditExample(e.target.value)}
+            disabled={saving}
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              className="font-mono text-xs px-3 py-1 bg-ink text-gold rounded hover:bg-gold hover:text-ink border border-ink transition-all disabled:opacity-60"
+              onClick={handleSave}
+              disabled={saving || !editMeaning.trim()}
+            >
+              Save
+            </button>
+            <button
+              className="font-mono text-xs px-3 py-1 bg-transparent text-faded border border-light-faded rounded hover:bg-light-faded hover:text-ink transition-all"
+              onClick={() => setEditMode(false)}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
+      ) : (
+        <>
+          {!learningMode && (
+            <div className="font-sans text-sm text-faded italic mb-2 leading-relaxed">
+              {word.meaning}
+            </div>
+          )}
+          {!learningMode && word.example && (
+            <div className="font-serif text-xs text-[#6b5a3e] leading-relaxed border-t border-light-faded pt-2 mt-2">
+              {word.example}
+            </div>
+          )}
+        </>
       )}
 
       {word.context && word.context.length > 0 && (

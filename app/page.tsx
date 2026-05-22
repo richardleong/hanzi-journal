@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Word, storage, REGISTER_OPTIONS, CONTEXT_OPTIONS } from "@/lib/storage";
 import { VocabCard } from "@/components/VocabCard";
+import { Toggle } from "@/components/ui/toggle";
 import { PinyinInput } from "@/components/PinyinInput";
 import { cn } from "@/lib/utils";
 import { pinyinSortKey } from "@/lib/pinyin";
@@ -35,6 +36,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "learning" | "mastered">("all");
   const [sort, setSort] = useState<"newest" | "oldest" | "pinyin">("newest");
+  const [learningMode, setLearningMode] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -308,6 +310,7 @@ export default function Home() {
                       <SelectItem value="greetings">Greetings</SelectItem>
                       <SelectItem value="workplace">Workplace</SelectItem>
                       <SelectItem value="numbers">Numbers</SelectItem>
+                      <SelectItem value="animals">Animals</SelectItem>
                       <SelectItem value="food">Food</SelectItem>
                       <SelectItem value="family">Family</SelectItem>
                       <SelectItem value="time">Time</SelectItem>
@@ -427,7 +430,7 @@ export default function Home() {
                   <div className="font-mono text-xs tracking-[0.3em] uppercase text-faded">
                     {filteredWords.length} words
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <ToggleGroup multiple={false} value={filter ? [filter] : []} onValueChange={(val) => val[0] && setFilter(val[0] as any)}>
                       {(['all', 'learning', 'mastered'] as const).map(f => (
                         <ToggleGroupItem
@@ -442,6 +445,14 @@ export default function Home() {
                         </ToggleGroupItem>
                       ))}
                     </ToggleGroup>
+                    <Toggle
+                      pressed={learningMode}
+                      onPressedChange={setLearningMode}
+                      className="ml-4 font-mono text-[0.6rem] px-3 py-1 border border-gold text-gold bg-transparent rounded-none hover:bg-gold/10 transition-all"
+                      aria-label="Toggle Learning Mode"
+                    >
+                      Learning Mode
+                    </Toggle>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -471,6 +482,13 @@ export default function Home() {
                       word={w}
                       onDelete={handleDelete}
                       onToggleMastered={handleToggleMastered}
+                      learningMode={learningMode}
+                      onEdit={async (id, updates) => {
+                        const updated = await storage.updateWord(id, updates);
+                        if (updated) {
+                          setWords(words => words.map(word => word.id === id ? updated : word));
+                        }
+                      }}
                     />
                   ))}
                 </div>
