@@ -136,7 +136,7 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
             </div>
           )}
           {!learningMode && word.example && (
-            <div className="font-serif text-xs text-[#6b5a3e] leading-relaxed border-t border-light-faded pt-2 mt-2">
+            <div className="font-serif text-s text-[#6b5a3e] leading-relaxed border-t border-light-faded pt-2 mt-2">
               {word.example}
             </div>
           )}
