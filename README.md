@@ -21,6 +21,7 @@ A minimalist, study-focused Chinese vocabulary journal built with Next.js, Tailw
 - **Mastery tracking** — mark words as mastered vs. learning
 - **Category labels** — organize words by topic (greetings, food, workplace, etc.)
 - **Export** — download your journal as JSON (backup) or tab-separated text (Anki-compatible)
+- **Local SQLite backend** — run a local Express server on Mac and access the same journal from other devices on the network
 - **Cross-device sync** — optional Supabase integration for syncing across devices
 - **Works offline** — falls back to localStorage when Supabase is not configured
 
@@ -40,6 +41,47 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Local-only mode (no Supabase)
 
 The app works immediately with `localStorage` — no setup required. Just run `npm run dev`.
+
+### Local SQLite backend (networked)
+
+1. From the repo root, install frontend dependencies:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/hanzi-journal.git
+cd hanzi-journal
+npm install
+```
+
+2. Start the local backend server on Mac:
+
+```bash
+cd backend
+npm install
+node server.js
+```
+
+3. Create or update `./.env.local` in the project root:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+4. Start the Next.js frontend:
+
+```bash
+cd ..
+npm run dev
+```
+
+5. On another device, point the frontend to your Mac's IP address instead of `localhost`:
+
+```env
+NEXT_PUBLIC_API_URL=http://192.168.1.8:3001
+```
+
+6. Open [http://localhost:3000](http://localhost:3000) on each device.
+
+> `.env.local` is gitignored, so the local API URL stays private to each machine.
 
 ### With Supabase (cross-device sync)
 
@@ -86,14 +128,18 @@ hanzi-journal/
 │   ├── globals.css          # Tailwind theme (ink/paper/gold palette)
 │   ├── layout.tsx           # Root layout with custom fonts
 │   └── page.tsx             # Main app — Add / Browse / Stats tabs
+├── backend/
+│   ├── package.json         # Local Express + SQLite backend
+│   ├── server.js            # REST API for words
+│   └── .env                 # local database path config (gitignored)
 ├── components/
 │   ├── PinyinInput.tsx      # Auto-converts numeric pinyin to tone marks
 │   └── VocabCard.tsx        # Vocabulary card component
 ├── lib/
 │   ├── pinyin.ts            # Hanyu Pinyin tone placement engine
-│   ├── storage.ts           # Hybrid storage (Supabase or localStorage)
+│   ├── storage.ts           # Local API storage + localStorage fallback
 │   └── utils.ts             # cn() utility (clsx + tailwind-merge)
-└── .env.local               # Supabase credentials (gitignored)
+└── .env.local               # Frontend config (gitignored)
 ```
 
 ---
@@ -107,7 +153,7 @@ hanzi-journal/
 | Styling   | Tailwind CSS v4                  |
 | Fonts     | Noto Serif SC, Space Mono, Lora  |
 | Icons     | lucide-react                     |
-| Database  | Supabase (PostgreSQL) — optional |
+| Database  | SQLite via local backend / Supabase (optional) |
 | Fallback  | localStorage                     |
 
 ---
