@@ -16,7 +16,16 @@ interface VocabCardProps {
 }
 
 export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMode }: VocabCardProps) {
-  const formattedDate = format(new Date(word.created_at), 'MMM dd, yyyy');
+  let formattedDate = 'Unknown date';
+  try {
+    const date = new Date(word.created_at);
+    if (!isNaN(date.getTime())) {
+      formattedDate = format(date, 'MMM dd, yyyy');
+    }
+  } catch (e) {
+    console.warn('Invalid date:', word.created_at);
+  }
+  
   const [editMode, setEditMode] = React.useState(false);
   const [editMeaning, setEditMeaning] = React.useState(word.meaning);
   const [editExample, setEditExample] = React.useState(word.example || "");

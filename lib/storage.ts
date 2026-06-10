@@ -1,5 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
 export interface Word {
   id: string;
   hanzi: string;
@@ -24,12 +22,7 @@ export const CONTEXT_OPTIONS = [
   'Singlish mix',
 ] as const;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const useSupabase = Boolean(supabaseUrl && supabaseKey);
-const supabase = useSupabase ? createClient(supabaseUrl, supabaseKey) : null;
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const LOCAL_STORAGE_KEY = 'hanzibon_words';
 
 /**
@@ -60,103 +53,92 @@ function saveLocalWords(words: Word[]) {
 
 export const storage = {
   async getWords(): Promise<Word[]> {
-    if (useSupabase && supabase) {
-      const { data, error } = await supabase
-        .from('words')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.warn('Supabase fetch failed:', error.message);
-        return [];
+    try {
+      const res = await fetch(`${API_URL}/api/words`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        console.warn('API fetch failed:', res.statusText);
+        return getLocalWords();
       }
-      return (data as Word[]) || [];
-    } else {
-      return getLocalWords().sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      const words = await res.json();
+      // Cache to localStorage for offline fallback
+      saveLocalWords(words);
+      return words;
+    } catch (error) {
+      console.warn('API error, using localStorage:', error);
+      return getLocalWords();
     }
   },
 
   async addWord(word: Omit<Word, 'id' | 'created_at' | 'mastered'>): Promise<Word | null> {
-    const newWord: Word = {
-      ...word,
-      id: crypto.randomUUID(),
-      mastered: false,
-      created_at: new Date().toISOString(),
-    };
-
-    if (useSupabase && supabase) {
-      const { data, error } = await supabase
-        .from('words')
-        .insert([newWord])
-        .select()
-        .single();
-      
-      if (error) {
-        // If it failed because of missing columns, retry without register/context
-        const { register: _r, context: _c, ...coreWord } = newWord;
-        const { data: retryData, error: retryError } = await supabase
-          .from('words')
-          .insert([coreWord])
-          .select()
-          .single();
-        
-        if (retryError) {
-          console.warn('Supabase insert failed:', retryError.message);
-          return null;
-        }
-        console.info('Saved without register/context — run ALTER TABLE to add those columns.');
-        return retryData as Word;
+    try {
+      const res = await fetch(`${API_URL}/api/words`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(word),
+      });
+      if (!res.ok) {
+        console.warn('API add failed:', res.statusText);
+        return null;
       }
-      return data as Word;
-    } else {
+      const newWord = await res.json();
+      // Update local cache
       const words = getLocalWords();
       words.push(newWord);
       saveLocalWords(words);
       return newWord;
+    } catch (error) {
+      console.warn('API error:', error);
+      return null;
     }
   },
 
   async updateWord(id: string, updates: Partial<Word>): Promise<Word | null> {
-    if (useSupabase && supabase) {
-      const { data, error } = await supabase
-        .from('words')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-        
-      if (error) {
-        console.warn('Supabase update failed:', error.message);
+    try {
+      const res = await fetch(`${API_URL}/api/words/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        console.warn('API update failed:', res.statusText);
         return null;
       }
-      return data as Word;
-    } else {
+      const updated = await res.json();
+      // Update local cache
       const words = getLocalWords();
       const index = words.findIndex((w) => w.id === id);
-      if (index === -1) return null;
-      
-      words[index] = { ...words[index], ...updates };
-      saveLocalWords(words);
-      return words[index];
+      if (index !== -1) {
+        words[index] = updated;
+        saveLocalWords(words);
+      }
+      return updated;
+    } catch (error) {
+      console.warn('API error:', error);
+      return null;
     }
   },
 
   async deleteWord(id: string): Promise<boolean> {
-    if (useSupabase && supabase) {
-      const { error } = await supabase.from('words').delete().eq('id', id);
-      if (error) {
-        console.warn('Supabase delete failed:', error.message);
+    try {
+      const res = await fetch(`${API_URL}/api/words/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        console.warn('API delete failed:', res.statusText);
         return false;
       }
-      return true;
-    } else {
+      // Update local cache
       let words = getLocalWords();
       const initialLength = words.length;
       words = words.filter((w) => w.id !== id);
       saveLocalWords(words);
       return words.length < initialLength;
+    } catch (error) {
+      console.warn('API error:', error);
+      return false;
     }
   }
 };

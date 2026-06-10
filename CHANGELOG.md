@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.1] - 2026-06-10
+
+### Added
+- Local SQLite backend server in `backend/` for Mac-based local network access.
+- `.env.local` support for `NEXT_PUBLIC_API_URL` to configure the frontend API endpoint per machine.
+
+### Changed
+- `lib/storage.ts` now routes frontend storage calls through the local backend API with localStorage fallback.
+- `components/VocabCard.tsx` now handles invalid or missing `created_at` values gracefully.
+
+### Fixed
+- Cross-device local access using Mac IP and `0.0.0.0:3001` backend binding.
+
 ## [0.4.0] - 2026-05-22
 
 ### Added
