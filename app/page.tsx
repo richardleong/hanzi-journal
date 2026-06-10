@@ -398,7 +398,7 @@ export default function Home() {
                       <button
                         onClick={handleAdd}
                         disabled={!hanzi.trim() || !pinyin.trim() || !meaning.trim()}
-                        className="font-mono text-xs tracking-widest uppercase bg-ink text-gold py-3 px-7 hover:bg-[#2d2416] hover:shadow-[3px_3px_0_var(--color-gold)] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:cursor-not-allowed w-full md:w-auto active:not-disabled:translate-y-px"
+                        className="font-mono text-xs tracking-widest uppercase bg-ink text-gold py-3 px-7 hover:bg-[#2d2416] hover:shadow-[3px_3px_0_var(--color-gold)] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:cursor-not-allowed w-full md:w-auto active:not-disabled:translate-y-px rounded-[6px]"
                       />
                     }
                   >

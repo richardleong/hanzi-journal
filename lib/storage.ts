@@ -13,7 +13,7 @@ export interface Word {
   created_at: string;
 }
 
-export const REGISTER_OPTIONS = ['Neutral', 'Formal', 'Informal', 'Slang', 'Vulgar'] as const;
+export const REGISTER_OPTIONS = ['Neutral', 'Formal', 'Casual', 'Slang', 'Vulgar'] as const;
 export const CONTEXT_OPTIONS = [
   'Spoken everyday',
   'Texting',
