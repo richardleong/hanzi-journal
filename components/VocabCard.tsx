@@ -46,7 +46,7 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
 
   return (
     <div className={cn(
-      "group relative bg-aged border border-light-faded p-5 pt-7 pb-4 transition-all duration-200 cursor-default",
+      "group relative bg-aged border border-light-faded p-5 pt-7 pb-10 transition-all duration-200 cursor-default",
       "hover:shadow-[3px_3px_0_var(--color-gold)] hover:-translate-x-px hover:-translate-y-px"
     )}>
       {/* Top Left: Category + Register */}
