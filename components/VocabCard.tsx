@@ -21,7 +21,7 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
     if (!isNaN(date.getTime())) {
       formattedDate = format(date, 'd MMM yyyy');
     }
-  } catch (e) {
+  } catch {
     console.warn('Invalid date:', word.created_at);
   }
 
@@ -31,10 +31,14 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
   const [saving, setSaving] = React.useState(false);
   const [revealed, setRevealed] = React.useState(false);
 
-  React.useEffect(() => {
-    setEditMeaning(word.meaning);
-    setEditExample(word.example || "");
-  }, [word.id]);
+  // Load the word's current values each time the editor opens
+  const toggleEdit = () => {
+    if (!editMode) {
+      setEditMeaning(word.meaning);
+      setEditExample(word.example || "");
+    }
+    setEditMode(!editMode);
+  };
 
   const hidden = learningMode && !revealed && !editMode;
 
@@ -76,7 +80,7 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
         <div className="flex -mr-1.5 -mt-1 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
           <Tooltip>
             <TooltipTrigger
-              onClick={(e) => { e.stopPropagation(); setEditMode((v) => !v); }}
+              onClick={(e) => { e.stopPropagation(); toggleEdit(); }}
               className="text-faded hover:text-gold p-1.5 rounded outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
               aria-label="Edit word"
             >
