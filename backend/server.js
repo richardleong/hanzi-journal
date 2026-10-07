@@ -77,7 +77,7 @@ const parseWord = (row) => {
   if (row.context) {
     try {
       context = JSON.parse(row.context);
-    } catch (e) {
+    } catch {
       console.warn(`Invalid JSON in context: ${row.context}`);
       context = undefined;
     }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Word, storage, REGISTER_OPTIONS, CONTEXT_OPTIONS } from "@/lib/storage";
 import { VocabCard } from "@/components/VocabCard";
-import { Toggle } from "@/components/ui/toggle";
+import { ReviewDeck } from "@/components/ReviewDeck";
 import { PinyinInput } from "@/components/PinyinInput";
 import { cn } from "@/lib/utils";
 import { pinyinSortKey } from "@/lib/pinyin";
@@ -11,14 +11,21 @@ import { differenceInDays, startOfDay } from "date-fns";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search } from "lucide-react";
 
-type Tab = "add" | "browse" | "stats";
+type Tab = "review" | "add" | "browse" | "stats";
+
+const TABS: { id: Tab; label: string; zh: string }[] = [
+  { id: "review", label: "Review", zh: "复习" },
+  { id: "add", label: "Add", zh: "添加" },
+  { id: "browse", label: "Browse", zh: "词汇" },
+  { id: "stats", label: "Stats", zh: "统计" },
+];
+
+const CATEGORIES = ["general", "greetings", "workplace", "numbers", "animals", "food", "family", "time", "phrases"];
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("add");
+  const [activeTab, setActiveTab] = useState<Tab>("review");
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +38,7 @@ export default function Home() {
   const [register, setRegister] = useState("");
   const [context, setContext] = useState<string[]>([]);
   const [showMore, setShowMore] = useState(false);
+  const hanziRef = useRef<HTMLInputElement>(null);
 
   // Browse state
   const [search, setSearch] = useState("");
@@ -42,13 +50,17 @@ export default function Home() {
     async function load() {
       const data = await storage.getWords();
       setWords(data);
+      // Nothing to review yet → start on Add
+      if (data.length === 0) setActiveTab("add");
       setLoading(false);
     }
     load();
   }, []);
 
+  const canSave = !!(hanzi.trim() && pinyin.trim() && meaning.trim());
+
   const handleAdd = async () => {
-    if (!hanzi.trim() || !pinyin.trim() || !meaning.trim()) return;
+    if (!canSave) return;
 
     const newWord = await storage.addWord({
       hanzi: hanzi.trim(),
@@ -68,13 +80,15 @@ export default function Home() {
       setExample("");
       setRegister("");
       setContext([]);
+      hanziRef.current?.focus();
 
       toast("Saved to Journal", {
         description: `${hanzi.trim()} / ${pinyin.trim()}`,
       });
     } else {
-      // Alert the user if the save failed
-      alert("Failed to save to journal. If using Supabase, ensure you have granted permissions.");
+      toast.error("Couldn't save — journal server unreachable", {
+        description: "Is the backend running? (cd backend && node server.js)",
+      });
     }
   };
 
@@ -89,7 +103,7 @@ export default function Home() {
   const handleToggleMastered = async (id: string, currentStatus: boolean) => {
     const updated = await storage.updateWord(id, { mastered: !currentStatus });
     if (updated) {
-      setWords(words.map(w => w.id === id ? updated : w));
+      setWords(words => words.map(w => w.id === id ? updated : w));
       if (!currentStatus) {
         toast("Marked as mastered! 🎉");
       }
@@ -101,7 +115,7 @@ export default function Home() {
     let masteredCount = 0;
     const categoryCounts: Record<string, number> = {};
     const dates = new Set<string>();
-    let todayCount = 0;
+    const todayWords: Word[] = [];
 
     const todayStr = startOfDay(new Date()).getTime();
 
@@ -113,7 +127,7 @@ export default function Home() {
       dates.add(wordDate.toString());
 
       if (wordDate === todayStr) {
-        todayCount++;
+        todayWords.push(w);
       }
     });
 
@@ -141,7 +155,8 @@ export default function Home() {
       mastered: masteredCount,
       activeDays: dates.size,
       streak,
-      todayCount,
+      todayCount: todayWords.length,
+      todayWords: todayWords.reverse(),
       categoryCounts,
     };
   }, [words]);
@@ -172,8 +187,27 @@ export default function Home() {
   const dailyGoal = 5;
   const progressPercent = Math.min((stats.todayCount / dailyGoal) * 100, 100);
 
+  const download = (content: string, type: string, ext: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hanzi-journal-${new Date().toISOString().split('T')[0]}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const submitOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
   if (loading) return (
-    <div className="w-full max-w-3xl min-h-[600px] bg-paper rounded-sm journal-shadow relative overflow-hidden flex flex-col p-10">
+    <div className="w-full max-w-3xl min-h-[600px] bg-paper sm:rounded-md journal-shadow relative overflow-hidden flex flex-col p-10">
       <Skeleton className="h-16 w-1/3 mb-4 bg-aged" />
       <Skeleton className="h-8 w-1/4 mb-10 bg-aged" />
       <div className="space-y-4">
@@ -185,199 +219,220 @@ export default function Home() {
   );
 
   return (
-    <div className="w-full max-w-3xl bg-paper rounded-sm journal-shadow relative overflow-hidden">
+    <div className="w-full max-w-3xl min-h-screen sm:min-h-0 bg-paper sm:rounded-md sm:journal-shadow relative overflow-hidden">
       {/* Spine */}
-      <div className="absolute left-0 top-0 bottom-0 w-7 bg-linear-to-r from-[#8b6914] via-[#c9a84c] to-[#8b6914] shadow-[inset_-3px_0_8px_rgba(0,0,0,0.3)] z-10" />
-      {/* Red margin line */}
-      <div className="absolute left-[68px] top-0 bottom-0 w-[1.5px] bg-red/20 z-0" />
+      <div className="absolute left-0 top-0 bottom-0 w-2.5 sm:w-6 bg-linear-to-r from-[#8b6914] via-[#c9a84c] to-[#8b6914] shadow-[inset_-3px_0_8px_rgba(0,0,0,0.3)] z-20" />
 
-      <div className="ml-7 relative z-10">
+      <div className="ml-2.5 sm:ml-6 relative z-10">
 
         {/* Header */}
-        <div className="bg-ink text-paper px-10 py-7 border-b-4 border-gold">
-          <div className="flex justify-between items-start gap-4">
+        <header className="bg-ink text-paper px-5 sm:px-10 pt-6 pb-5 sm:pt-8 sm:pb-6 border-b-4 border-gold">
+          <div className="flex justify-between items-end gap-4">
             <div>
-              <div className="font-serif text-4xl md:text-5xl font-bold tracking-[0.15em] text-gold leading-none" style={{ textShadow: '0 0 30px rgba(184,134,11,0.4)' }}>
+              <h1 className="font-serif text-4xl md:text-5xl font-bold tracking-[0.12em] text-gold leading-none" style={{ textShadow: '0 0 30px rgba(184,134,11,0.4)' }}>
                 汉字本
-              </div>
-              <div className="font-mono text-[0.65rem] tracking-[0.3em] uppercase text-light-faded mt-2">
-                Vocab Journal · {dailyGoal} words a day
+              </h1>
+              <div className="font-mono text-[0.68rem] tracking-[0.2em] uppercase text-light-faded/80 mt-2.5">
+                {dailyGoal} words a day
               </div>
             </div>
             <div className="text-right">
-              <div className="font-mono text-4xl text-gold font-bold leading-none">{stats.streak}</div>
-              <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-light-faded mt-1">day streak</div>
+              <div className="font-mono text-4xl text-gold font-bold leading-none">
+                {stats.streak}<span className="text-2xl ml-0.5">🔥</span>
+              </div>
+              <div className="font-mono text-[0.65rem] tracking-[0.18em] uppercase text-light-faded/80 mt-1.5">day streak</div>
             </div>
           </div>
 
           <div className="mt-5 flex items-center gap-3">
-            <div className="flex-1 h-1.5 bg-white/10 overflow-hidden">
+            <div className="flex-1 h-2 bg-white/10 overflow-hidden rounded-full">
               <div
-                className="h-full bg-linear-to-r from-[#8b6914] to-gold transition-all duration-700 ease-out"
+                className="h-full bg-linear-to-r from-[#8b6914] to-gold transition-all duration-700 ease-out rounded-full"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
             <div className="font-mono text-xs text-light-faded whitespace-nowrap">
-              {stats.todayCount} / {dailyGoal} today
+              <span className="text-gold font-bold">{stats.todayCount}</span> / {dailyGoal} today
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Tabs */}
-        <div className="flex border-b-[1.5px] border-light-faded bg-aged px-10">
-          {(['add', 'browse', 'stats'] as Tab[]).map((t) => (
+        <nav className="sticky top-0 z-30 grid grid-cols-4 border-b border-light-faded bg-aged/95 backdrop-blur-sm px-2 sm:px-8">
+          {TABS.map((t) => (
             <button
-              key={t}
-              onClick={() => setActiveTab(t)}
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
               className={cn(
-                "font-mono text-xs tracking-[0.2em] uppercase py-3 px-4 transition-all mb-[-1.5px] border-b-[2.5px]",
-                activeTab === t
-                  ? "text-ink border-red font-bold"
+                "flex flex-col items-center gap-0.5 py-3 -mb-px border-b-[2.5px] transition-colors",
+                activeTab === t.id
+                  ? "text-ink border-red"
                   : "text-faded border-transparent hover:text-ink"
               )}
             >
-              {t === 'add' ? '+ Add' : t}
+              <span className="font-serif text-base leading-none">{t.zh}</span>
+              <span className={cn("font-mono text-[0.62rem] tracking-[0.14em] uppercase", activeTab === t.id && "font-bold")}>
+                {t.label}
+              </span>
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* Content Area */}
-        <div className="p-8 md:p-10 min-h-[400px]">
+        <main className="px-5 py-7 sm:p-10 min-h-[420px]">
+
+          {/* TAB: REVIEW */}
+          {activeTab === 'review' && (
+            <ReviewDeck
+              words={words}
+              onToggleMastered={handleToggleMastered}
+              onGoToAdd={() => setActiveTab('add')}
+            />
+          )}
 
           {/* TAB: ADD */}
           {activeTab === 'add' && (
             <div className="animate-in fade-in duration-300">
-              {stats.todayCount >= dailyGoal && (
-                <div className="bg-ink text-gold p-3 font-mono text-xs tracking-widest flex items-center gap-2 mb-6">
-                  <span>✓</span> {dailyGoal} words reached today — well done. Keep going if you want!
-                </div>
-              )}
 
-              {/* Preview */}
-              <div className="mb-6">
-                <div className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-faded mb-2">Live Preview</div>
-                <div className="bg-aged border border-light-faded p-5 min-h-[80px] flex items-center gap-4 flex-wrap">
-                  {hanzi || pinyin || meaning ? (
-                    <div className="flex flex-col items-center mx-2">
-                      <div className="font-mono text-sm text-red tracking-wider mb-1">{pinyin || 'pīn yīn'}</div>
-                      <div className="font-serif text-3xl text-ink leading-tight">{hanzi || '汉字'}</div>
-                    </div>
-                  ) : (
-                    <span className="font-mono text-[0.65rem] text-light-faded tracking-[0.15em]">TYPE BELOW TO PREVIEW</span>
+              {/* Today's slots */}
+              <div className="mb-8">
+                <div className="flex items-baseline justify-between mb-3">
+                  <span className="label">Today&apos;s words</span>
+                  {stats.todayCount >= dailyGoal && (
+                    <span className="font-mono text-[0.68rem] tracking-wider text-green">✓ Goal reached — keep going!</span>
                   )}
+                </div>
+                <div className="flex gap-2 sm:gap-3 flex-wrap">
+                  {Array.from({ length: Math.max(dailyGoal, stats.todayCount) }).map((_, i) => {
+                    const w = stats.todayWords[i];
+                    return (
+                      <div
+                        key={i}
+                        title={w ? `${w.pinyin} — ${w.meaning}` : undefined}
+                        className={cn(
+                          "h-14 min-w-14 px-2 flex items-center justify-center rounded-md font-serif text-xl transition-all",
+                          w
+                            ? "bg-ink text-gold"
+                            : "border-[1.5px] border-dashed border-light-faded text-light-faded text-sm font-mono"
+                        )}
+                      >
+                        {w ? w.hanzi : i + 1}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Chinese Characters 汉字</label>
-                  <input
-                    type="text"
-                    value={hanzi}
-                    onChange={(e) => setHanzi(e.target.value)}
-                    placeholder="e.g. 你好"
-                    className="h-[36px] font-serif text-base bg-transparent border-b-[1.5px] border-light-faded px-1 py-0 text-ink outline-none transition-colors focus:border-red"
-                  />
+              <div className="bg-aged/50 border border-light-faded rounded-lg p-5 sm:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-5">
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="hanzi" className="label">Characters 汉字</label>
+                    <input
+                      id="hanzi"
+                      ref={hanziRef}
+                      autoFocus
+                      type="text"
+                      value={hanzi}
+                      onChange={(e) => setHanzi(e.target.value)}
+                      onKeyDown={submitOnEnter}
+                      placeholder="你好"
+                      className="field h-20 text-4xl text-center"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="pinyin" className="label">Pinyin 拼音 <span className="normal-case tracking-normal text-light-faded">· type ni3 hao3</span></label>
+                      <PinyinInput
+                        id="pinyin"
+                        value={pinyin}
+                        onValueChange={setPinyin}
+                        onKeyDown={submitOnEnter}
+                        placeholder="nǐ hǎo"
+                        className="field text-red font-mono tracking-wide"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="meaning" className="label">Meaning</label>
+                      <input
+                        id="meaning"
+                        type="text"
+                        value={meaning}
+                        onChange={(e) => setMeaning(e.target.value)}
+                        onKeyDown={submitOnEnter}
+                        placeholder="Hello"
+                        className="field"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Pinyin 拼音</label>
-                  <PinyinInput
-                    value={pinyin}
-                    onValueChange={setPinyin}
-                    placeholder="e.g. nǐ hǎo (type ni3 hao3)"
-                    className="h-[36px] font-sans text-base py-0"
-                  />
+
+                <div className="flex flex-col gap-2 mt-5">
+                  <span className="label">Category</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CATEGORIES.map(c => (
+                      <button key={c} type="button" data-active={category === c} onClick={() => setCategory(c)} className="chip">
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Meaning (English)</label>
-                  <input
-                    type="text"
-                    value={meaning}
-                    onChange={(e) => setMeaning(e.target.value)}
-                    placeholder="e.g. Hello"
-                    className="h-[36px] font-serif text-base bg-transparent border-b-[1.5px] border-light-faded px-1 py-0 text-ink outline-none transition-colors focus:border-red"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Category</label>
-                  <Select value={category} onValueChange={(v) => v && setCategory(v)}>
-                    <SelectTrigger className="w-full h-[36px] font-serif text-base bg-transparent border-0 border-b-[1.5px] border-light-faded px-1 py-0 text-ink shadow-none rounded-none focus:ring-0 focus:border-red items-center translate-y-[4px]">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="greetings">Greetings</SelectItem>
-                      <SelectItem value="workplace">Workplace</SelectItem>
-                      <SelectItem value="numbers">Numbers</SelectItem>
-                      <SelectItem value="animals">Animals</SelectItem>
-                      <SelectItem value="food">Food</SelectItem>
-                      <SelectItem value="family">Family</SelectItem>
-                      <SelectItem value="time">Time</SelectItem>
-                      <SelectItem value="phrases">Phrases</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Example Sentence (optional)</label>
+
+                <div className="flex flex-col gap-2 mt-5">
+                  <label htmlFor="example" className="label">Example sentence <span className="normal-case tracking-normal text-light-faded">· optional</span></label>
                   <textarea
+                    id="example"
                     value={example}
                     onChange={(e) => setExample(e.target.value)}
-                    placeholder="e.g. 你好，我叫 Rich。 — Hello, my name is Rich."
-                    className="font-serif text-sm bg-transparent border-b-[1.5px] border-light-faded px-1 py-1.5 text-ink outline-none transition-colors focus:border-red min-h-[60px] resize-y"
+                    placeholder="你好，我叫 Rich。 — Hello, my name is Rich."
+                    className="field h-auto min-h-[72px] py-2.5 text-sm resize-y"
                   />
                 </div>
-              </div>
 
-              {/* Collapsible + More Details */}
-              <div className="mb-5">
-                <Collapsible open={showMore} onOpenChange={setShowMore}>
+                {/* Collapsible + More Details */}
+                <Collapsible open={showMore} onOpenChange={setShowMore} className="mt-5">
                   <CollapsibleTrigger
                     type="button"
-                    className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-faded hover:text-ink transition-colors flex items-center gap-1.5 group outline-none"
+                    className="label hover:text-ink transition-colors flex items-center gap-1.5 outline-none"
                   >
-                    <span className={`inline-block transition-transform duration-200 ${showMore ? 'rotate-45' : ''}`}>+</span>
-                    More details
-                    <span className="font-mono text-[0.5rem] text-light-faded">(optional)</span>
+                    <span className={`inline-block text-sm transition-transform duration-200 ${showMore ? 'rotate-45' : ''}`}>+</span>
+                    Register &amp; context
                   </CollapsibleTrigger>
 
                   <CollapsibleContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
-                      {/* Register dropdown */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Register</label>
-                        <Select value={register} onValueChange={(v) => v && setRegister(v)}>
-                          <SelectTrigger className="w-full h-[36px] font-serif text-base bg-transparent border-0 border-b-[1.5px] border-light-faded px-1 py-0 text-ink shadow-none rounded-none focus:ring-0 focus:border-red items-center translate-y-[3px]">
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">— Select —</SelectItem>
-                            {REGISTER_OPTIONS.map(r => (
-                              <SelectItem key={r} value={r}>{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    <div className="flex flex-col gap-5 pt-4">
+                      <div className="flex flex-col gap-2">
+                        <span className="label">Register</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {REGISTER_OPTIONS.map(r => (
+                            <button
+                              key={r}
+                              type="button"
+                              data-active={register === r}
+                              onClick={() => setRegister(register === r ? "" : r)}
+                              className="chip"
+                            >
+                              {r}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-
-                      {/* Context multi-select */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-faded">Where you&apos;d see/hear it</label>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
+                      <div className="flex flex-col gap-2">
+                        <span className="label">Where you&apos;d see / hear it</span>
+                        <div className="flex flex-wrap gap-1.5">
                           {CONTEXT_OPTIONS.map(c => {
                             const selected = context.includes(c);
                             return (
                               <button
                                 key={c}
                                 type="button"
+                                data-active={selected}
                                 onClick={() => {
                                   setContext(prev =>
                                     selected ? prev.filter(x => x !== c) : [...prev, c]
                                   );
                                 }}
-                                className={`font-mono text-[0.55rem] tracking-wider px-2 py-1 border transition-colors ${selected
-                                  ? 'bg-ink text-gold border-ink'
-                                  : 'bg-transparent text-faded border-light-faded hover:border-faded'
-                                  }`}
+                                className="chip"
                               >
                                 {c}
                               </button>
@@ -388,26 +443,13 @@ export default function Home() {
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
-              </div>
 
-              <div className="flex items-center gap-4 mt-6">
-                <Tooltip>
-                  <TooltipTrigger
-                    className="relative"
-                    render={
-                      <button
-                        onClick={handleAdd}
-                        disabled={!hanzi.trim() || !pinyin.trim() || !meaning.trim()}
-                        className="font-mono text-xs tracking-widest uppercase bg-ink text-gold py-3 px-7 hover:bg-[#2d2416] hover:shadow-[3px_3px_0_var(--color-gold)] transition-all disabled:opacity-50 disabled:hover:shadow-none disabled:cursor-not-allowed w-full md:w-auto active:not-disabled:translate-y-px rounded-[6px]"
-                      />
-                    }
-                  >
+                <div className="flex items-center gap-4 mt-6">
+                  <button onClick={handleAdd} disabled={!canSave} className="btn-ink w-full sm:w-auto">
                     Save to Journal
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Add word to your vocabulary list</p>
-                  </TooltipContent>
-                </Tooltip>
+                  </button>
+                  <span className="hidden sm:inline label normal-case tracking-normal text-light-faded">or press Enter</span>
+                </div>
               </div>
             </div>
           )}
@@ -415,70 +457,55 @@ export default function Home() {
           {/* TAB: BROWSE */}
           {activeTab === 'browse' && (
             <div className="animate-in fade-in duration-300">
-              <div className="mb-6 relative">
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-faded pointer-events-none" />
                 <input
-                  type="text"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search hanzi, pinyin, or meaning..."
-                  className="w-full font-mono text-xs px-1 py-2 border-b-[1.5px] border-light-faded bg-transparent tracking-wide focus:border-ink outline-none"
+                  placeholder="Search hanzi, pinyin, or meaning…"
+                  className="field pl-9 font-sans text-sm"
                 />
               </div>
 
-              <div className="flex flex-col gap-3 mb-6">
-                <div className="flex items-center justify-between">
-                  <div className="font-mono text-xs tracking-[0.3em] uppercase text-faded">
-                    {filteredWords.length} words
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <ToggleGroup multiple={false} value={filter ? [filter] : []} onValueChange={(val) => val[0] && setFilter(val[0] as any)}>
-                      {(['all', 'learning', 'mastered'] as const).map(f => (
-                        <ToggleGroupItem
-                          key={f}
-                          value={f}
-                          className={cn(
-                            "font-mono text-[0.55rem] tracking-widest uppercase px-2.5 py-1.5 border transition-colors h-auto rounded-none data-[state=on]:bg-ink data-[state=on]:text-paper data-[state=on]:border-ink",
-                            "bg-transparent text-faded border-light-faded hover:bg-ink hover:text-paper"
-                          )}
-                        >
-                          {f}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                    <Toggle
-                      pressed={learningMode}
-                      onPressedChange={setLearningMode}
-                      className="ml-4 font-mono text-[0.6rem] px-3 py-1 border border-gold text-gold bg-transparent rounded-none hover:bg-gold/10 transition-all"
-                      aria-label="Toggle Learning Mode"
-                    >
-                      Learning Mode
-                    </Toggle>
-                  </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6">
+                <div className="flex gap-1.5">
+                  {(['all', 'learning', 'mastered'] as const).map(f => (
+                    <button key={f} data-active={filter === f} onClick={() => setFilter(f)} className="chip">
+                      {f}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[0.5rem] tracking-[0.2em] uppercase text-light-faded mr-1">Sort</span>
-                  <ToggleGroup multiple={false} value={sort ? [sort] : []} onValueChange={(val) => val[0] && setSort(val[0] as any)}>
-                    {([['newest', 'Newest'], ['oldest', 'Oldest'], ['pinyin', 'A-Z Pinyin']] as const).map(([val, label]) => (
-                      <ToggleGroupItem
-                        key={val}
-                        value={val}
-                        className={cn(
-                          "font-mono text-[0.5rem] tracking-wider px-2 py-1 border transition-colors h-auto rounded-none data-[state=on]:bg-gold/15 data-[state=on]:text-[#8b6914] data-[state=on]:border-gold/30",
-                          "bg-transparent text-light-faded border-light-faded/50 hover:text-faded hover:border-light-faded"
-                        )}
-                      >
-                        {label}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </div>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as typeof sort)}
+                  className="font-mono text-[0.68rem] tracking-wider uppercase text-faded bg-transparent border border-light-faded rounded-full px-3 py-1.5 outline-none hover:border-faded cursor-pointer"
+                  aria-label="Sort"
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="pinyin">A–Z pinyin</option>
+                </select>
+                <button
+                  data-active={learningMode}
+                  onClick={() => setLearningMode(m => !m)}
+                  className="chip ml-auto data-[active=true]:bg-gold data-[active=true]:border-gold data-[active=true]:text-ink"
+                >
+                  {learningMode ? "◉ Answers hidden" : "○ Hide answers"}
+                </button>
+              </div>
+
+              <div className="label mb-3">
+                {filteredWords.length} word{filteredWords.length === 1 ? "" : "s"}
+                {learningMode && <span className="normal-case tracking-normal text-light-faded"> · tap a card to reveal</span>}
               </div>
 
               {filteredWords.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {filteredWords.map(w => (
                     <VocabCard
-                      key={w.id}
+                      // Remount on toggle so revealed cards re-hide
+                      key={`${w.id}-${learningMode}`}
                       word={w}
                       onDelete={handleDelete}
                       onToggleMastered={handleToggleMastered}
@@ -493,9 +520,9 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-16 text-light-faded italic text-sm">
-                  <span className="font-serif text-5xl block mb-4 opacity-40">空</span>
-                  No words found.
+                <div className="text-center py-16 text-faded text-sm">
+                  <span className="font-serif text-6xl block mb-4 text-light-faded">空</span>
+                  {words.length === 0 ? "Your journal is empty." : "No words match."}
                 </div>
               )}
             </div>
@@ -504,78 +531,68 @@ export default function Home() {
           {/* TAB: STATS */}
           {activeTab === 'stats' && (
             <div className="animate-in fade-in duration-300">
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="bg-aged border border-light-faded p-5 text-center">
-                  <div className="font-mono text-3xl font-bold text-ink leading-none">{stats.total}</div>
-                  <div className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-faded mt-2">Total Words</div>
-                </div>
-                <div className="bg-aged border border-light-faded p-5 text-center">
-                  <div className="font-mono text-3xl font-bold text-ink leading-none">{stats.mastered}</div>
-                  <div className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-faded mt-2">Mastered</div>
-                </div>
-                <div className="bg-aged border border-light-faded p-5 text-center">
-                  <div className="font-mono text-3xl font-bold text-ink leading-none">{stats.activeDays}</div>
-                  <div className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-faded mt-2">Days Active</div>
-                </div>
-              </div>
-
-              <div className="font-mono text-[0.65rem] tracking-[0.3em] uppercase text-faded mb-4">By Category</div>
-              <div className="space-y-2 mb-8">
-                {Object.entries(stats.categoryCounts).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
-                  <div key={cat} className="flex items-center gap-3">
-                    <div className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-faded w-24 shrink-0 truncate">
-                      {cat}
-                    </div>
-                    <div className="flex-1 h-2 bg-black/5">
-                      <div
-                        className="h-full bg-ink"
-                        style={{ width: `${(count / stats.total) * 100}%` }}
-                      />
-                    </div>
-                    <div className="font-mono text-[0.6rem] text-faded w-5 text-right">
-                      {count}
-                    </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
+                {[
+                  { n: stats.total, label: "Total words" },
+                  { n: stats.mastered, label: "Mastered" },
+                  { n: stats.activeDays, label: "Days active" },
+                  { n: stats.streak, label: "Day streak" },
+                ].map(s => (
+                  <div key={s.label} className="bg-aged/60 border border-light-faded rounded-lg p-5 text-center">
+                    <div className="font-mono text-3xl font-bold text-ink leading-none">{s.n}</div>
+                    <div className="label mt-2.5">{s.label}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-aged border border-light-faded p-6 mt-6">
-                <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-faded mb-3">Export / Backup</div>
-                <p className="font-sans text-sm text-faded italic mb-4">
+              {stats.total > 0 && (
+                <>
+                  <div className="label mb-3">Mastery</div>
+                  <div className="h-3 bg-light-faded/30 rounded-full overflow-hidden mb-10">
+                    <div className="h-full bg-green rounded-full transition-all" style={{ width: `${(stats.mastered / stats.total) * 100}%` }} />
+                  </div>
+
+                  <div className="label mb-4">By category</div>
+                  <div className="space-y-2.5 mb-10">
+                    {Object.entries(stats.categoryCounts).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
+                      <div key={cat} className="flex items-center gap-3">
+                        <div className="font-mono text-[0.68rem] tracking-[0.1em] uppercase text-faded w-24 shrink-0 truncate">
+                          {cat}
+                        </div>
+                        <div className="flex-1 h-2 bg-light-faded/30 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-ink rounded-full"
+                            style={{ width: `${(count / stats.total) * 100}%` }}
+                          />
+                        </div>
+                        <div className="font-mono text-xs text-faded w-6 text-right">
+                          {count}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="bg-aged/60 border border-light-faded rounded-lg p-6">
+                <div className="label mb-2">Export / Backup</div>
+                <p className="text-sm text-faded mb-4">
                   Download your vocab as JSON (for backup) or plain text (for Anki/printing).
                 </p>
                 <div className="flex gap-3 flex-wrap">
                   <button
-                    onClick={() => {
-                      const blob = new Blob([JSON.stringify(words, null, 2)], { type: 'application/json' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `hanzi-journal-${new Date().toISOString().split('T')[0]}.json`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="font-mono text-[0.65rem] tracking-[0.15em] uppercase bg-transparent border-[1.5px] border-ink text-ink px-5 py-2 hover:bg-ink hover:text-paper transition-all"
+                    onClick={() => download(JSON.stringify(words, null, 2), 'application/json', 'json')}
+                    className="btn-outline py-2 px-5"
                   >
                     ↓ JSON Backup
                   </button>
                   <button
-                    onClick={() => {
-                      const lines = words.map(w => `${w.hanzi}\t${w.pinyin}\t${w.meaning}\t${w.example || ''}\t${w.register || ''}\t${(w.context || []).join(', ')}`);
-                      const text = lines.join('\n');
-                      const blob = new Blob([text], { type: 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `hanzi-journal-${new Date().toISOString().split('T')[0]}.txt`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="font-mono text-[0.65rem] tracking-[0.15em] uppercase bg-transparent border-[1.5px] border-ink text-ink px-5 py-2 hover:bg-ink hover:text-paper transition-all"
+                    onClick={() => download(
+                      words.map(w => `${w.hanzi}\t${w.pinyin}\t${w.meaning}\t${w.example || ''}\t${w.register || ''}\t${(w.context || []).join(', ')}`).join('\n'),
+                      'text/plain',
+                      'txt',
+                    )}
+                    className="btn-outline py-2 px-5"
                   >
                     ↓ Text / Anki
                   </button>
@@ -584,7 +601,7 @@ export default function Home() {
             </div>
           )}
 
-        </div>
+        </main>
       </div>
     </div>
   );

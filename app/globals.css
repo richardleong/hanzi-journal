@@ -101,7 +101,7 @@
 
 @layer base {
   body {
-    @apply bg-[#2c2416] min-h-screen font-sans text-ink flex justify-center py-10 px-4;
+    @apply bg-[#2c2416] min-h-screen font-sans text-ink flex justify-center py-0 px-0 sm:py-10 sm:px-4;
     background-image:
       repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255, 255, 255, 0.03) 39px, rgba(255, 255, 255, 0.03) 40px),
       repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255, 255, 255, 0.02) 39px, rgba(255, 255, 255, 0.02) 40px);
@@ -113,6 +113,32 @@
 
   * {
     @apply border-border outline-ring/50;
+  }
+}
+
+@layer components {
+  /* Small caps-style label — readable size, still has the typewriter feel */
+  .label {
+    @apply font-mono text-[0.68rem] tracking-[0.14em] uppercase text-faded;
+  }
+
+  .field {
+    @apply w-full h-11 font-serif text-base bg-white/50 border border-light-faded rounded-md px-3 text-ink outline-none transition-colors placeholder:text-light-faded focus:border-gold focus:bg-white/80 focus:ring-2 focus:ring-gold/20;
+  }
+
+  .btn-ink {
+    @apply font-mono text-xs tracking-[0.14em] uppercase bg-ink text-gold py-3 px-6 rounded-md transition-all hover:bg-[#2d2416] hover:shadow-[3px_3px_0_var(--color-gold)] active:translate-y-px disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none;
+  }
+
+  .btn-outline {
+    @apply font-mono text-xs tracking-[0.14em] uppercase bg-transparent border-[1.5px] border-ink/70 text-ink py-3 px-6 rounded-md transition-all hover:bg-ink hover:text-paper active:translate-y-px;
+  }
+
+  .chip {
+    @apply font-mono text-[0.65rem] tracking-wider uppercase px-3 py-1.5 border rounded-full transition-colors border-light-faded text-faded bg-transparent hover:border-faded hover:text-ink;
+  }
+  .chip[data-active="true"] {
+    @apply bg-ink text-paper border-ink;
   }
 }
 

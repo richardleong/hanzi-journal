@@ -32,7 +32,7 @@ export function PinyinInput({ className, value, onValueChange, onChange, ...prop
       value={value}
       onChange={handleChange}
       className={cn(
-        "font-serif text-base bg-transparent border-b-[1.5px] border-light-faded px-1 py-1.5 text-ink outline-none transition-colors w-full focus:border-red",
+        "w-full outline-none",
         className
       )}
     />
