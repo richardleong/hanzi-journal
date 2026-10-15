@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Word } from "@/lib/storage";
+import { SpeakButton } from "@/components/SpeakButton";
 import { cn } from "@/lib/utils";
 
 interface ReviewDeckProps {
@@ -75,6 +76,7 @@ export function ReviewDeck({ words, onToggleMastered, onGoToAdd }: ReviewDeckPro
       if (!current) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (target.closest("[data-speak-button]")) return; // let the speaker button handle its own keys
       if (!revealed && (e.key === " " || e.key === "Enter")) {
         e.preventDefault();
         setRevealed(true);
@@ -129,32 +131,35 @@ export function ReviewDeck({ words, onToggleMastered, onGoToAdd }: ReviewDeckPro
         <span className="label">{done} / {sessionTotal}</span>
       </div>
 
-      {/* Flashcard */}
-      <button
-        type="button"
-        onClick={() => setRevealed(true)}
-        disabled={revealed}
-        className={cn(
-          "w-full bg-white/60 border border-light-faded rounded-md min-h-[300px] flex flex-col items-center justify-center px-6 py-10 transition-shadow",
-          !revealed && "hover:shadow-[3px_3px_0_var(--color-gold)] cursor-pointer"
-        )}
-      >
-        <div className={cn("font-mono text-lg text-red tracking-wider mb-2 transition-opacity", revealed ? "opacity-100" : "opacity-0")}>
-          {current.pinyin}
-        </div>
-        <div className="font-serif text-6xl md:text-7xl text-ink leading-tight">{current.hanzi}</div>
-
-        {revealed ? (
-          <div className="mt-6 text-center animate-in fade-in slide-in-from-bottom-1 duration-200">
-            <div className="text-lg text-ink">{current.meaning}</div>
-            {current.example && (
-              <div className="font-serif text-base text-faded mt-3 max-w-md">{current.example}</div>
-            )}
+      {/* Flashcard — the speaker sits beside the card, not in it (a <button> can't contain a <button>) */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          disabled={revealed}
+          className={cn(
+            "w-full bg-white/60 border border-light-faded rounded-md min-h-[300px] flex flex-col items-center justify-center px-6 py-10 transition-shadow",
+            !revealed && "hover:shadow-[3px_3px_0_var(--color-gold)] cursor-pointer"
+          )}
+        >
+          <div className={cn("font-mono text-lg text-red tracking-wider mb-2 transition-opacity", revealed ? "opacity-100" : "opacity-0")}>
+            {current.pinyin}
           </div>
-        ) : (
-          <div className="mt-8 label">Tap to reveal · space</div>
-        )}
-      </button>
+          <div lang="zh-CN" className="font-serif text-6xl md:text-7xl text-ink leading-tight">{current.hanzi}</div>
+
+          {revealed ? (
+            <div className="mt-6 text-center animate-in fade-in slide-in-from-bottom-1 duration-200">
+              <div className="text-lg text-ink">{current.meaning}</div>
+              {current.example && (
+                <div className="font-serif text-base text-faded mt-3 max-w-md">{current.example}</div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-8 label">Tap to reveal · space</div>
+          )}
+        </button>
+        <SpeakButton id={current.id} text={current.hanzi} size={20} className="absolute top-3 right-3" />
+      </div>
 
       {/* Actions */}
       <div className={cn("grid grid-cols-2 gap-3 mt-5 transition-opacity", revealed ? "opacity-100" : "opacity-0 pointer-events-none")}>
