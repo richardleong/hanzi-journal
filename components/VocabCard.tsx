@@ -4,6 +4,7 @@ import { Trash2, CheckCircle2, Circle, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { SpeakButton } from '@/components/SpeakButton';
 
 
 interface VocabCardProps {
@@ -109,8 +110,11 @@ export function VocabCard({ word, onDelete, onToggleMastered, onEdit, learningMo
         <div className={cn("font-mono text-sm text-red tracking-wider mb-1 transition-opacity", hidden && "opacity-0")}>
           {word.pinyin}
         </div>
-        <div className="font-serif text-4xl font-normal text-ink leading-tight">
-          {word.hanzi}
+        <div className="flex items-center gap-1">
+          <div lang="zh-CN" className="font-serif text-4xl font-normal text-ink leading-tight">
+            {word.hanzi}
+          </div>
+          <SpeakButton id={word.id} text={word.hanzi} />
         </div>
       </div>
 
